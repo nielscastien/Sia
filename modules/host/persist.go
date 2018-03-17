@@ -175,7 +175,11 @@ func (h *Host) load() error {
 	// Get the contract count by observing all of the incomplete storage
 	// obligations in the database.
 	h.financialMetrics.ContractCount = 0
+	h.financialMetrics.LockedStorageCollateral = types.ZeroCurrency
+	h.financialMetrics.PotentialStorageRevenue = types.ZeroCurrency
+	h.financialMetrics.PotentialContractCompensation = types.ZeroCurrency
 	err = h.db.View(func(tx *bolt.Tx) error {
+		i := 0
 		cursor := tx.Bucket(bucketStorageObligations).Cursor()
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
 			var so storageObligation
@@ -185,8 +189,15 @@ func (h *Host) load() error {
 			}
 			if so.ObligationStatus == obligationUnresolved {
 				h.financialMetrics.ContractCount++
+				h.financialMetrics.LockedStorageCollateral = h.financialMetrics.LockedStorageCollateral.Add(so.LockedCollateral)
+				h.financialMetrics.PotentialStorageRevenue = h.financialMetrics.PotentialStorageRevenue.Add(so.PotentialStorageRevenue)
+				h.financialMetrics.PotentialContractCompensation = h.financialMetrics.PotentialContractCompensation.Add(so.ContractCost)
+			}
+			if so.ObligationStatus == obligationRejected {
+				i++
 			}
 		}
+		h.log.Println("Number of rejected storage obligations:", i)
 		return nil
 	})
 	if err != nil {
