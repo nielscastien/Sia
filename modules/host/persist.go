@@ -180,7 +180,8 @@ func (h *Host) load() error {
 	h.financialMetrics.LockedStorageCollateral = types.ZeroCurrency
 	h.financialMetrics.PotentialStorageRevenue = types.ZeroCurrency
 	h.financialMetrics.PotentialContractCompensation = types.ZeroCurrency
-	spendTransactionFee := types.ZeroCurrency
+	h.financialMetrics.RiskedStorageCollateral = types.ZeroCurrency
+	h.financialMetrics.TransactionFeeExpenses = types.ZeroCurrency
 	err = h.db.View(func(tx *bolt.Tx) error {
 		i := 0
 		cursor := tx.Bucket(bucketStorageObligations).Cursor()
@@ -195,15 +196,16 @@ func (h *Host) load() error {
 				h.financialMetrics.LockedStorageCollateral = h.financialMetrics.LockedStorageCollateral.Add(so.LockedCollateral)
 				h.financialMetrics.PotentialStorageRevenue = h.financialMetrics.PotentialStorageRevenue.Add(so.PotentialStorageRevenue)
 				h.financialMetrics.PotentialContractCompensation = h.financialMetrics.PotentialContractCompensation.Add(so.ContractCost)
+				h.financialMetrics.RiskedStorageCollateral = h.financialMetrics.RiskedStorageCollateral.Add(so.RiskedCollateral)
 			}
 			if so.ObligationStatus == obligationRejected {
 				i++
 			}
 			if so.ObligationStatus == obligationSucceeded || so.ObligationStatus == obligationFailed {
-				spendTransactionFee = spendTransactionFee.Add(so.TransactionFeesAdded)
+				h.financialMetrics.TransactionFeeExpenses = h.financialMetrics.TransactionFeeExpenses.Add(so.TransactionFeesAdded)
 			}
 		}
-		h.log.Printf("Rejected SO's: %v, TransactionFeeExpenses: %v", i, currencyUnits(spendTransactionFee))
+		h.log.Printf("Rejected SO's: %v", i)
 		return nil
 	})
 	if err != nil {
